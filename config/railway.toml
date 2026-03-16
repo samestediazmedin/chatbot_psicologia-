@@ -1,0 +1,10 @@
+[project]
+name = "chatbot-psico"
+
+[services.bot]
+source = "backend"
+command = "pnpm dev:bot"
+
+[services.api]
+source = "backend"
+command = "pnpm start:api"

@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PatientState {
+  aspirante
+  registrado
+  con_cita
+  activo
+  inactivo
+}
+
+enum FlowState {
+  register
+  assistantFlow
+  testFlow
+  agendFlow
+  finalFlow
+}
+
+enum AppointmentStatus {
+  programada
+  completada
+  cancelada
+  reagendada
+}
+
+enum NotificationType {
+  nuevo_registro
+  alto_riesgo
+  resultado_test
+  resumen_citas
+}
+
+enum MetricOrigin {
+  chat
+  ghq12
+  dass12
+  pdf
+}
+
+enum PsychEventType {
+  riesgo_suicida
+  ansiedad_severa
+  depresion_critica
+  estres_agudo
+  aislamiento_social
+}
+
+enum RiskLevel {
+  bajo
+  medio
+  alto
+  critico
+}
+
+model Role {
+  id          String         @id @default(uuid())
+  name        String         @unique
+  description String?
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String         @id @default(uuid())
+  key         String         @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  id          String      @id @default(uuid())
+  roleId      String
+  permissionId String
+
+  role        Role        @relation(fields: [roleId], references: [id])
+  permission  Permission  @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+}
+
+model User {
+  id            String      @id @default(uuid())
+  name          String
+  lastName      String?
+  email         String      @unique
+  passwordHash  String
+  roleId        String
+  active        Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  role          Role        @relation(fields: [roleId], references: [id])
+  patient       Patient?
+  practitioner  Practitioner?
+  auditLogs     AccessAudit[]
+  notifications PsychEvent[] @relation("eventHandledBy")
+}
+
+model Patient {
+  id               String        @id @default(uuid())
+  userId           String?       @unique
+  whatsappNumber   String        @unique
+  name             String?
+  lastName         String?
+  email            String?       @unique
+  documentType     String        @default("CC")
+  documentNumber   String?       @unique
+  state            PatientState  @default(aspirante)
+  flow             FlowState     @default(register)
+  helpStage        Int           @default(1)
+  testActual       String        @default("ghq12")
+  availability     Json          @default("{}")
+  motivo           String?
+  dataAgreement    Boolean       @default(false)
+  practitionerId   String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  user             User?         @relation(fields: [userId], references: [id])
+  practitioner     Practitioner? @relation(fields: [practitionerId], references: [id])
+  sessions         ChatSession[]
+  evaluations      PsychEvaluation[]
+  appointments     Appointment[]
+  pdfDocuments     PdfDocument[]
+  events           PsychEvent[]
+  metrics          PsychMetric[]
+}
+
+model Practitioner {
+  id             String         @id @default(uuid())
+  userId         String?        @unique
+  documentNumber String         @unique
+  documentType   String         @default("CC")
+  name           String
+  lastName       String?
+  gender         String
+  estrato        String
+  barrio         String
+  localidad      String
+  schedule       Json
+  sessionsCount  Int            @default(0)
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+
+  user           User?          @relation(fields: [userId], references: [id])
+  appointments   Appointment[]
+  patients       Patient[]
+}
+
+model ConsultingRoom {
+  id        String        @id @default(uuid())
+  name      String
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  citas     Appointment[]
+}
+
+model ChatSession {
+  id         String         @id @default(uuid())
+  patientId  String
+  startedAt  DateTime       @default(now())
+  endedAt    DateTime?
+
+  patient    Patient        @relation(fields: [patientId], references: [id])
+  messages   ChatMessage[]
+  analysis   ChatAnalysis?
+}
+
+model ChatMessage {
+  id         String      @id @default(uuid())
+  sessionId  String
+  sender     String
+  body       String
+  metadata   Json?
+  sentAt     DateTime    @default(now())
+
+  session    ChatSession @relation(fields: [sessionId], references: [id])
+}
+
+model ChatAnalysis {
+  id               String      @id @default(uuid())
+  sessionId        String      @unique
+  detectedEmotion  String?
+  stressLevel      Int?
+  anxietyLevel     Int?
+  depressionLevel  Int?
+  riskLevel        RiskLevel?
+  analysisJson     Json?
+  createdAt        DateTime    @default(now())
+
+  session          ChatSession @relation(fields: [sessionId], references: [id])
+}
+
+model PsychEvaluation {
+  id             String        @id @default(uuid())
+  patientId      String
+  type           String
+  totalScore     Int           @default(0)
+  result         String?
+  responses      Json?
+  currentQuestion Int          @default(0)
+  completed      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+
+  patient        Patient       @relation(fields: [patientId], references: [id])
+  ghq12Result    Ghq12Result?
+  dass12Result   Dass12Result?
+
+  @@unique([patientId, type])
+}
+
+model Ghq12Result {
+  id             String           @id @default(uuid())
+  evaluationId   String           @unique
+  mentalHealth   Int
+  riskLevel      RiskLevel
+
+  evaluation     PsychEvaluation  @relation(fields: [evaluationId], references: [id])
+}
+
+model Dass12Result {
+  id                String           @id @default(uuid())
+  evaluationId      String           @unique
+  depressionScore   Int
+  anxietyScore      Int
+  stressScore       Int
+  depressionLevel   RiskLevel
+  anxietyLevel      RiskLevel
+  stressLevel       RiskLevel
+
+  evaluation        PsychEvaluation  @relation(fields: [evaluationId], references: [id])
+}
+
+model Appointment {
+  id              String            @id @default(uuid())
+  patientId       String
+  practitionerId  String
+  consultingRoomId String
+  scheduledAt     DateTime
+  status          AppointmentStatus @default(programada)
+  createdAt       DateTime          @default(now())
+
+  patient         Patient           @relation(fields: [patientId], references: [id])
+  practitioner    Practitioner      @relation(fields: [practitionerId], references: [id])
+  consultingRoom  ConsultingRoom    @relation(fields: [consultingRoomId], references: [id])
+}
+
+model PdfDocument {
+  id            String       @id @default(uuid())
+  patientId     String
+  filename      String
+  path          String
+  sizeBytes     Int?
+  uploadedAt    DateTime     @default(now())
+
+  patient       Patient      @relation(fields: [patientId], references: [id])
+  analysis      PdfAnalysis?
+}
+
+model PdfAnalysis {
+  id            String      @id @default(uuid())
+  documentId    String      @unique
+  summary       String?
+  keywords      String?
+  highlights    String?
+  analysisJson  Json?
+  createdAt     DateTime    @default(now())
+
+  document      PdfDocument @relation(fields: [documentId], references: [id])
+}
+
+model PsychEvent {
+  id             String        @id @default(uuid())
+  patientId      String
+  type           PsychEventType
+  description    String?
+  riskLevel      RiskLevel
+  attended       Boolean       @default(false)
+  attendedById   String?
+  createdAt      DateTime      @default(now())
+
+  patient        Patient       @relation(fields: [patientId], references: [id])
+  attendedBy     User?         @relation("eventHandledBy", fields: [attendedById], references: [id])
+}
+
+model PsychMetric {
+  id          String      @id @default(uuid())
+  patientId   String
+  anxiety     Int?
+  depression  Int?
+  stress      Int?
+  risk        RiskLevel?
+  origin      MetricOrigin
+  createdAt   DateTime    @default(now())
+
+  patient     Patient     @relation(fields: [patientId], references: [id])
+}
+
+model EmailNotification {
+  id            String           @id @default(uuid())
+  recipient     String
+  type          NotificationType
+  subject       String
+  content       String
+  status        String          @default("enviado")
+  referenceId   String?
+  createdAt     DateTime        @default(now())
+}
+
+model AccessAudit {
+  id          String    @id @default(uuid())
+  userId      String
+  action      String
+  resource    String?
+  result      String
+  ip          String?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id])
+}

@@ -1,0 +1,10 @@
+{
+  "folders": [
+    { "path": "apps" },
+    { "path": "config" },
+    { "path": "resources" },
+    { "path": "infra" },
+    { "path": "docs" }
+  ],
+  "settings": {}
+}
