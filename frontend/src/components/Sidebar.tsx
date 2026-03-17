@@ -1,51 +1,83 @@
-import { LucideIcon, LayoutDashboard, Users2, CalendarClock } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
-
-const icons: Record<string, LucideIcon> = {
-  dashboard: LayoutDashboard,
-  patients: Users2,
-  agenda: CalendarClock
-};
+import { LogOut, X } from 'lucide-react';
+import logo from '../assets/loguito.png';
 
 interface SidebarProps {
-  tabs: { key: string; label: string }[];
-  activeTab: string;
-  onTabChange: (key: string) => void;
+  onLogout?: () => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-export function Sidebar({ tabs, activeTab, onTabChange }: SidebarProps) {
-  const { logout } = useAuth();
-
+export default function Sidebar({ onLogout, isOpen, onClose }: SidebarProps) {
   return (
-    <aside className="w-64 bg-night text-sand border-r border-night/40 flex flex-col">
-      <div className="p-6">
-        <p className="text-xs uppercase tracking-[0.3em] text-ocean/80">ChatBot Psico</p>
-        <p className="text-2xl font-semibold">Panel Clínico</p>
-      </div>
-      <nav className="flex-1 px-4 space-y-2">
-        {tabs.map((tab) => {
-          const Icon = icons[tab.key] ?? LayoutDashboard;
-          const isActive = tab.key === activeTab;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => onTabChange(tab.key)}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition ${
-                isActive ? "bg-ocean text-night" : "hover:bg-night/40"
-              }`}
-            >
-              <Icon size={18} />
-              <span className="text-sm font-medium">{tab.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-      <button
-        onClick={logout}
-        className="m-4 rounded-xl border border-coral px-3 py-2 text-sm text-coral hover:bg-coral hover:text-night"
+    <>
+      {/* Mobile backdrop — tap outside to close */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={`
+          flex flex-col items-center h-full px-6 py-8
+          bg-gradient-to-b from-blue-600 via-blue-500 to-indigo-600
+          text-white select-none flex-shrink-0
+          w-[80%] max-w-[320px]
+          transition-transform duration-300 ease-in-out
+          md:relative md:translate-x-0 md:w-[30%] md:min-w-[260px] md:max-w-[340px]
+          fixed top-0 left-0 z-40
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
       >
-        Cerrar sesión
-      </button>
-    </aside>
+        {/* Close button — mobile only */}
+        <button
+          onClick={onClose}
+          className="md:hidden self-end mb-2 p-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+          aria-label="Cerrar panel"
+        >
+          <X className="w-4 h-4 text-white" />
+        </button>
+
+        {/* Avatar */}
+        <div className="mt-2 mb-1">
+          <img
+            src={logo}
+            alt="Logo Chatbot Psicologico"
+            className="w-44 h-44 object-contain"
+          />
+        </div>
+
+        {/* Title */}
+        <h1 className="text-3xl font-extrabold text-center leading-tight tracking-tight drop-shadow">
+          Chatbot<br />Psicológico
+        </h1>
+
+        {/* Subtitle */}
+        <p className="mt-2 text-sm font-medium tracking-widest uppercase text-white/60 text-center">
+          Tu asistente virtual
+        </p>
+
+        {/* Divider */}
+        <div className="mt-8 w-16 h-px bg-white/20 rounded-full" />
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Logout button */}
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-2xl bg-rose-500 hover:bg-rose-400 active:bg-rose-600 text-white font-semibold text-sm shadow-lg shadow-rose-900/30 transition-all duration-200 cursor-pointer"
+        >
+          <LogOut className="w-4 h-4" />
+          Cerrar Sesión
+        </button>
+
+        {/* Footer brand */}
+        <p className="mt-5 text-xs text-white/30 font-medium tracking-wide">
+          ChatBot para Psicología · v1
+        </p>
+      </aside>
+    </>
   );
 }
